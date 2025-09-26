@@ -12,4 +12,4 @@ CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags="-s -w" -o build/_output
 docker build --platform=linux/amd64 -f build/Dockerfile -t "$IMAGE" .
 
 # Push (if needed)
-docker push "$IMAGE"
+# docker push "$IMAGE"
