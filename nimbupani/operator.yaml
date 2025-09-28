@@ -107,6 +107,9 @@ spec:
         name: yugabyte-operator
     spec:
       serviceAccountName: yugabyte-operator
+      imagePullSecrets:
+        - name: ghcr-creds
+
       containers:
         - name: yugabyte-operator
           # Replace this with the built image name
