@@ -1,0 +1,39 @@
+# This YAML defines the YugabyteDB cluster custom resource.
+# The YugabyteDB operator will watch for this resource and provision the database in the 'yb' namespace.
+
+apiVersion: yugabytedb.com/v1alpha1
+kind: YBCluster
+metadata:
+  name: yb-cluster
+  namespace: yb
+spec:
+  replicationFactor: 3 # For high availability, requires at least 3 nodes in your K8s cluster
+  master:
+    replicas: 2
+    storage:
+      size: 5Gi
+      storageClass: standard # Change to your preferred storage class
+  tserver:
+    replicas: 2
+    storage:
+      size: 5Gi
+      storageClass: standard # Change to your preferred storage class
+  ysql:
+    enable: true # Enable the YSQL (PostgreSQL-compatible) API
+  resource:
+    master:
+      requests:
+        cpu: 1
+        memory: 1Gi
+      limits:
+        cpu: 1
+        memory: 1Gi
+    tserver:
+      requests:
+        cpu: 1
+        memory: 1Gi
+      limits:
+        cpu: 1
+        memory: 1Gi
+  network:
+    domainName: cluster.local

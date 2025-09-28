@@ -1,0 +1,28 @@
+# This CronJob performs periodic backups of the YugabyteDB cluster.
+# NOTE: This example creates a snapshot within the cluster.
+# For production, you should modify the command to upload the backup to external storage like S3.
+
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: yb-backup
+  namespace: yb
+spec:
+  schedule: "0 2 * * *" # Run daily at 2:00 AM
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          containers:
+            - name: yb-backup
+              image: yugabytedb/yugabyte:2.14.0.0-b59
+              command:
+                - "/bin/sh"
+                - "-c"
+                - >
+                  /home/yugabyte/bin/yb-admin \
+                  --master_addresses yb-prod-cluster-master.yb.svc.cluster.local:7100 \
+                  create_snapshot ysql.keycloak;
+                  echo "Snapshot for ysql.keycloak created successfully."
+              # In a real scenario, you'd add steps here to upload to S3, GCS, etc.
+          restartPolicy: OnFailure

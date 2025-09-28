@@ -13,4 +13,4 @@ build/_test
 # Output of the go coverage tool, specifically when used with LiteIDE
 *.out
 
-nimbupani/secret.yaml 
+nimbupani/yugabyte-operator/secret.yaml 

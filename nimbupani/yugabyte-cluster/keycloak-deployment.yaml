@@ -1,0 +1,79 @@
+# This file defines the Deployment and Service for Keycloak, now in the 'yb' namespace.
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: keycloak
+  namespace: yb
+  labels:
+    app: keycloak
+spec:
+  replicas: 1 # You can scale this for higher availability
+  selector:
+    matchLabels:
+      app: keycloak
+  template:
+    metadata:
+      labels:
+        app: keycloak
+    spec:
+      containers:
+        - name: keycloak
+          image: quay.io/keycloak/keycloak:22.0.1 # Use a recent version of Keycloak
+          env:
+            - name: KEYCLOAK_ADMIN
+              value: "admin" # Change this for production
+            - name: KEYCLOAK_ADMIN_PASSWORD
+              value: "admin" # Change this for production
+            - name: KC_DB
+              value: "postgres"
+            - name: KC_DB_URL_HOST
+              valueFrom:
+                secretKeyRef:
+                  name: keycloak-db-secret
+                  key: DB_HOST
+            - name: KC_DB_URL_PORT
+              value: "5432" # PgBouncer will listen on the standard PostgreSQL port
+            - name: KC_DB_DATABASE
+              valueFrom:
+                secretKeyRef:
+                  name: keycloak-db-secret
+                  key: DB_DATABASE
+            - name: KC_DB_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: keycloak-db-secret
+                  key: DB_USER
+            - name: KC_DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: keycloak-db-secret
+                  key: DB_PASSWORD
+            - name: KC_PROXY
+              value: "edge"
+          args: ["start-dev"] # Use 'start' for production with proper TLS configured
+          ports:
+            - name: http
+              containerPort: 8080
+          readinessProbe:
+            httpGet:
+              path: /realms/master
+              port: 8080
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: keycloak
+  namespace: yb
+  labels:
+    app: keycloak
+spec:
+  ports:
+    - name: http
+      port: 8080
+      targetPort: 8080
+  selector:
+    app: keycloak
+  type: LoadBalancer # Or NodePort/ClusterIP depending on how you want to expose it
+

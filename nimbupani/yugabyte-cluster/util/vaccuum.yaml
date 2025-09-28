@@ -1,0 +1,36 @@
+# This CronJob runs a VACUUM command on all databases to reclaim storage and prevent bloat.
+# It uses a dedicated maintenance user.
+
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: yb-vacuum
+  namespace: yb
+spec:
+  schedule: "0 4 * * *" # Run daily at 4:00 AM
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          containers:
+            - name: yb-vacuum
+              image: postgres:14-alpine
+              env:
+                - name: PGPASSWORD
+                  valueFrom:
+                    secretKeyRef:
+                      name: maintenance-user-secret
+                      key: password
+                - name: PGHOST
+                  value: "pgbouncer.yb.svc.cluster.local" # Maintenance should also go through the pooler
+                - name: PGUSER
+                  value: "maintenance_user"
+              command:
+                - "/bin/sh"
+                - "-c"
+                - >
+                  psql -d keycloak -c "VACUUM VERBOSE;";
+                  # Add more lines for other databases, e.g.:
+                  # psql -d user_service_db -c "VACUUM VERBOSE;";
+                  echo "Vacuum tasks completed."
+          restartPolicy: OnFailure

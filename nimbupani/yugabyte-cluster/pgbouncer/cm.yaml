@@ -1,0 +1,39 @@
+# This ConfigMap holds the configuration files for PgBouncer.
+# We define connection pools for various services here.
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: pgbouncer-config
+  namespace: yb
+data:
+  pgbouncer.ini: |
+    [databases]
+    # This section defines the connection pools.
+    # format: <pool_name> = host=<db_host> port=<db_port> dbname=<db_name>
+
+    keycloak = host=yb-cluster-ysql.yb.svc.cluster.local port=5433 dbname=keycloak
+
+    # Example for another service:
+    # user_service = host=yb-cluster-ysql.yb.svc.cluster.local port=5433 dbname=user_service_db
+
+    [pgbouncer]
+    listen_addr = 0.0.0.0
+    listen_port = 5432
+    auth_type = md5
+    auth_file = /etc/pgbouncer/userlist.txt
+    admin_users = pgbouncer_admin
+    pool_mode = transaction
+    server_reset_query = DISCARD ALL
+    max_client_conn = 1000
+    default_pool_size = 20
+
+  userlist.txt: |
+    # This file contains the users that PgBouncer will use to connect to the upstream database.
+    # format: "username" "password"
+
+    "keycloak" "changeme"
+    "pgbouncer_admin" "changeme_admin"
+
+    # Example for another service user:
+    # "user_service_user" "some_strong_password"

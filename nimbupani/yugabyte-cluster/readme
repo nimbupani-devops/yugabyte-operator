@@ -1,0 +1,110 @@
+Deploying a Production-Ready Microservices Backend with Keycloak and YugabyteDB
+This guide provides the necessary files and instructions to deploy a robust backend stack on Kubernetes. This includes:
+
+A highly available YugabyteDB cluster.
+
+A PgBouncer connection pooler for performance and stability.
+
+A Keycloak instance for authentication.
+
+Scheduled CronJobs for database backup and maintenance.
+
+This architecture is designed to support multiple microservices (auth, user, mission, ai, etc.).
+
+Prerequisites
+A running Kubernetes cluster (e.g., Minikube, Kind, GKE, EKS, AKS).
+
+kubectl command-line tool configured to connect to your cluster.
+
+A StorageClass available for persistent volumes. The default is standard.
+
+Deployment Steps
+Follow these steps in order to deploy the entire stack into the yb namespace.
+
+1. Install the YugabyteDB Operator
+   The operator manages the lifecycle of our YugabyteDB cluster.
+
+kubectl apply -f 01-yugabyte-operator.yaml
+
+Wait for the operator pod to be Running in the yb namespace: kubectl get pods -n yb
+
+2. Deploy the YugabyteDB Cluster
+   This command creates a 3-node YugabyteDB cluster.
+
+kubectl apply -f 02-yugabyte-cluster.yaml
+
+Monitor the progress until all yb-master and yb-tserver pods are Running: kubectl get pods -n yb -l app.kubernetes.io/name=yugabytedb
+
+3. Create Database Users and Databases
+   We need to create dedicated users and databases for our services and maintenance tasks.
+
+First, connect to a YSQL pod. Find a T-Server pod name:
+kubectl get pods -n yb -l yb-cluster-component-name=yb-tserver
+
+Then, exec into one of the pods (replace the pod name):
+
+kubectl exec -it -n yb yb-prod-cluster-tserver-0 -- /home/yugabyte/bin/ysqlsh
+
+Inside the ysqlsh shell, run the following SQL commands. Use the passwords you configured in the secret and configmap files.
+
+-- User and DB for Keycloak (auth service)
+CREATE USER keycloak WITH PASSWORD 'changeme';
+CREATE DATABASE keycloak OWNER keycloak;
+
+-- User for maintenance jobs
+CREATE USER maintenance_user WITH PASSWORD 'changeme_maintenance';
+ALTER USER maintenance_user WITH SUPERUSER; -- Required for some maintenance tasks
+
+-- User for PgBouncer admin access
+CREATE USER pgbouncer_admin WITH PASSWORD 'changeme_admin';
+
+-- Example: User and DB for a 'user-service'
+-- CREATE USER user_service_user WITH PASSWORD 'some_strong_password';
+-- CREATE DATABASE user_service_db OWNER user_service_user;
+
+Type \q to exit the shell.
+
+4. Deploy PgBouncer
+   First, create the ConfigMap that holds the PgBouncer configuration.
+   Note: If you changed passwords in the previous step, you must update them in 05-pgbouncer-configmap.yaml before applying.
+
+kubectl apply -f 05-pgbouncer-configmap.yaml
+
+Now, deploy PgBouncer itself.
+
+kubectl apply -f 06-pgbouncer-deployment.yaml
+
+5. Deploy Keycloak Service
+   Create the secret for Keycloak's database connection.
+
+kubectl apply -f 03-keycloak-secret.yaml
+
+Deploy Keycloak. It will connect to the database via PgBouncer.
+
+kubectl apply -f 04-keycloak-deployment.yaml
+
+6. Deploy Maintenance Jobs
+   Create the secret for the maintenance user.
+
+kubectl apply -f 09-maintenance-user-secret.yaml
+
+Deploy the backup and vacuum cronjobs.
+
+kubectl apply -f 07-db-backup-cronjob.yaml
+kubectl apply -f 08-db-vacuum-cronjob.yaml
+
+You can verify their creation with kubectl get cronjobs -n yb.
+
+7. Access Keycloak
+   Find the external IP address assigned to the keycloak service:
+   kubectl get service keycloak -n yb
+
+Navigate to http://<EXTERNAL-IP>:8080. Log in to the admin console with the credentials from 04-keycloak-deployment.yaml (default: admin/admin).
+
+Cleanup
+To remove all resources, run these commands:
+
+kubectl delete -f . --namespace yb
+kubectl delete namespace yb
+kubectl delete clusterrole yugabyte-operator
+kubectl delete clusterrolebinding yugabyte-operator
